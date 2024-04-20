@@ -1,6 +1,4 @@
-﻿using System.Globalization;
-
-namespace FinanceCalculator.Templates;
+﻿namespace FinanceCalculator.Templates;
 
 public static class DiffOverCreditVsDeposit
 {
@@ -10,17 +8,18 @@ public static class DiffOverCreditVsDeposit
 
 		try
 		{
-			Console.WriteLine($"Ежемесячный расход: {paySum}");
+			Console.WriteLine($"Ипотека: {CreditConstants.Sum:N}");
 			var credCalc = new CreditCalculator();
+			Console.WriteLine("Если не гасить досрочно:");
+			var defCredResult = credCalc.CalculateDefault();
+			defCredResult.RenderSummary();
+			Console.WriteLine("Если гасить досрочно:");
+			Console.WriteLine($"Ежемесячный расход: {paySum:N}");
+			credCalc.CalculateWithOverPay(paySum).RenderSummary();
 			var depCalc = new DepositCalculator();
-			var defCreditPayments = credCalc.CalculateDefault();
-			Console.WriteLine("График платежей по ипотеке:");
-			credCalc.RenderTable(defCreditPayments);
-			Console.Write("Рассчитаем вклад, целевая сумма: ");
-			var targetDepSum = Convert.ToDecimal(Console.ReadLine(), CultureInfo.InvariantCulture);
-			var depResult = depCalc.Calculate(paySum, targetDepSum);
-			Console.WriteLine($"Стартовая сумма вклада: {DepositInfo.CurrentSum:N}");
-			depCalc.RenderSummary(depResult);
+			Console.WriteLine($"Если класть на накопительный под {DepositConstants.Percent:N}%, то вот за какой период будет накоплено для погашения ипотеки:");
+			Console.WriteLine($"Стартовая сумма {DepositConstants.CurrentSum:N}");
+			depCalc.CalculateWithCreditResult(paySum, defCredResult).RenderSummary();
 		}
 		catch (Exception e)
 		{

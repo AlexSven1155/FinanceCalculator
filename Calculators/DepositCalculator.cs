@@ -1,23 +1,43 @@
 ﻿namespace FinanceCalculator.Calculators;
 
+/// <summary>
+/// Калькулятор для расчета вклада.
+/// </summary>
 public class DepositCalculator
 {
+	/// <summary>
+	/// Дата начала рассчетов.
+	/// </summary>
 	private readonly DateTime _startDate;
 
-	public List<DepositMonthModel> Calculate(decimal monthlyPay, decimal targetSum)
+	/// <inheritdoc cref="DepositCalculator"/>
+	public DepositCalculator()
+	{
+		var currDate = DateTime.Now;
+		_startDate = new DateTime(currDate.Year, currDate.Month, DepositConstants.IncrementDay);
+	}
+
+	/// <summary>
+	/// Делает рассчет за указанный период.
+	/// </summary>
+	/// <param name="monthlyPay">Ежемесячная сумма пополнения вклада.</param>
+	/// <param name="monthCount">Срок вклада в месяцах.</param>
+	/// <returns>Результат рассчета.</returns>
+	public List<DepositMonthModel> CalculateWithPeriod(decimal monthlyPay, int monthCount)
 	{
 		var result = new List<DepositMonthModel>();
-		var dailyPercent = DepositInfo.Percent / 365;
-		var totalSum = DepositInfo.CurrentSum;
+		var totalSum = DepositConstants.CurrentSum;
 		var currentDate = _startDate;
+		var currMonthCount = 0;
 
-		while (!result.Any() || totalSum < targetSum)
+		while (result.Count == 0 || ++currMonthCount <= monthCount)
 		{
 			var monthlyPercentSum = 0m;
 			currentDate = currentDate.AddDays(1);
 
-			while (currentDate.Day != DepositInfo.IncrementDay)
+			while (currentDate.Day != DepositConstants.IncrementDay)
 			{
+				var dailyPercent = PercentUtils.GetDailyRate(currentDate, DepositConstants.Percent);
 				monthlyPercentSum += totalSum * dailyPercent;
 				currentDate = currentDate.AddDays(1);
 			}
@@ -38,48 +58,89 @@ public class DepositCalculator
 		return result;
 	}
 
-	public void RenderTable(List<DepositMonthModel> depositList)
+	/// <summary>
+	/// Делает рассчет до указанной суммы.
+	/// </summary>
+	/// <param name="monthlyPay">Ежемесячная сумма пополнения вклада.</param>
+	/// <param name="targetSum">Сумма которую требуется накопить.</param>
+	/// <returns>Результат рассчета.</returns>
+	public List<DepositMonthModel> CalculateWithTargetSum(decimal monthlyPay, decimal targetSum)
 	{
-		var rows = new List<List<string>>();
-		var consoleRenderInfo = new ConsoleRenderInfo([
-			"Дата",
-			"Сумма накопленний",
-			"Потраченная сумма",
-			"Сумма процентов"
-		], rows);
+		var result = new List<DepositMonthModel>();
+		var totalSum = DepositConstants.CurrentSum;
+		var currentDate = _startDate;
 
-		foreach (var deposit in depositList)
+		while (result.Count == 0 || totalSum < targetSum)
 		{
-			var row = new List<string>();
-			row.Add($"{deposit.IncrementDate:dd-MM-yyyy}"); // Дата
-			row.Add($"{Math.Round(deposit.TotalSum, 2):N}"); // Сумма накопленний
-			row.Add($"{Math.Round(deposit.MonthlyPay, 2):N}"); // Потраченная сумма
-			row.Add($"{Math.Round(deposit.PercentSum, 2)}"); // Сумма процентов
-			rows.Add(row);
+			var monthlyPercentSum = 0m;
+			currentDate = currentDate.AddDays(1);
+
+			while (currentDate.Day != DepositConstants.IncrementDay)
+			{
+				var dailyPercent = PercentUtils.GetDailyRate(currentDate, DepositConstants.Percent);
+				monthlyPercentSum += totalSum * dailyPercent;
+				currentDate = currentDate.AddDays(1);
+			}
+
+			var monthlySum = monthlyPay + monthlyPercentSum;
+			totalSum += monthlySum;
+
+			result.Add(new DepositMonthModel
+			{
+				PercentSum = monthlyPercentSum,
+				IncrementDate = currentDate,
+				TotalSum = totalSum,
+				MonthlySum = monthlySum,
+				MonthlyPay = monthlyPay
+			});
 		}
 
-		new ConsoleRender(consoleRenderInfo).Render();
+		return result;
 	}
 
-	public void RenderSummary(List<DepositMonthModel> depositList)
+	/// <summary>
+	/// Делает рассчет исходя из результата рассчета ипотеки.
+	/// Вычисляет до тех пор, пока не накопится достаточно для закрытия основного долга по ипотеке.
+	/// </summary>
+	/// <param name="monthlyPay">Ежемесячная сумма пополнения вклада.</param>
+	/// <param name="creditResult">Результат рассчета ипотеки.</param>
+	/// <returns>Результат рассчета.</returns>
+	public List<DepositMonthModel> CalculateWithCreditResult(decimal monthlyPay, List<CreditMonthPaymentModel> creditResult)
 	{
-		var rows = new List<List<string>>();
-		var consoleRenderInfo = new ConsoleRenderInfo([
-			"Общая накопленная сумма",
-			"Потраченная сумма",
-			"Первая дата",
-			"Количество месяцев",
-			"Последняя дата"
-		], rows);
+		var result = new List<DepositMonthModel>();
+		var totalSum = DepositConstants.CurrentSum;
+		var currentDate = _startDate;
 
-		var row = new List<string>();
-		row.Add($"{Math.Round(depositList.Sum(dep => dep.MonthlySum) + DepositInfo.CurrentSum, 2):N}"); // Общая накопленная сумма
-		row.Add($"{Math.Round(depositList.Sum(dep => dep.MonthlyPay), 2):N}"); // Потраченная сумма
-		row.Add($"{depositList.First().IncrementDate:dd-MM-yyyy}"); // Первая дата
-		row.Add($"{Math.Round((double)(depositList.Last().IncrementDate - depositList.First().IncrementDate).Days / 30)}"); // Количество месяцев
-		row.Add($"{depositList.Last().IncrementDate:dd-MM-yyyy}"); // Последняя дата
-		rows.Add(row);
+		while (true)
+		{
+			var monthlyPercentSum = 0m;
+			currentDate = currentDate.AddDays(1);
 
-		new ConsoleRender(consoleRenderInfo).Render();
+			while (currentDate.Day != DepositConstants.IncrementDay)
+			{
+				var dailyPercent = PercentUtils.GetDailyRate(currentDate, DepositConstants.Percent);
+				monthlyPercentSum += totalSum * dailyPercent;
+				currentDate = currentDate.AddDays(1);
+			}
+
+			var monthlySum = monthlyPay + monthlyPercentSum;
+			totalSum += monthlySum;
+
+			result.Add(new DepositMonthModel
+			{
+				PercentSum = monthlyPercentSum,
+				IncrementDate = currentDate,
+				TotalSum = totalSum,
+				MonthlySum = monthlySum,
+				MonthlyPay = monthlyPay
+			});
+
+			if (totalSum >= creditResult.FirstOrDefault(pay => pay.PayDate > currentDate)?.DebtRemainder)
+			{
+				break;
+			}
+		}
+
+		return result;
 	}
 }

@@ -1,6 +1,6 @@
 ﻿namespace FinanceCalculator.Constants;
 
-public class DepositInfo
+public class DepositConstants
 {
 	/// <summary>
 	/// Годовой процент вклада.
@@ -16,9 +16,4 @@ public class DepositInfo
 	/// День начисления процентов на счет.
 	/// </summary>
 	public const int IncrementDay = 0;
-
-	/// <summary>
-	/// Требуемая сумма для накопления.
-	/// </summary>
-	public const decimal TargetSum = 0;
 }

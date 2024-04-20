@@ -1,2 +1,1 @@
 ﻿DiffOverCreditVsDeposit.Run();
-//OnlyCreditTable.Run();
